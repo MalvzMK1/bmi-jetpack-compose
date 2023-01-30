@@ -144,13 +144,17 @@ fun Main() {
 fun Footer() {
   Card(
     modifier = Modifier
-      .fillMaxSize(),
+      .fillMaxWidth()
+      .fillMaxHeight(.7f),
     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
     backgroundColor = Color.Blue,
     contentColor = Color.White
   ) {
     Column(
-      modifier = Modifier.padding(16.dp),
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp),
+      verticalArrangement = Arrangement.Center,
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
       Text(
@@ -195,7 +199,10 @@ fun FooterPreview() {
 
 @Composable
 fun BmiCalculator() {
-  Column(modifier = Modifier.fillMaxSize()) {
+  Column(
+    modifier = Modifier.fillMaxSize(),
+    verticalArrangement = Arrangement.SpaceBetween
+  ) {
     Header()
     Main()
     Footer()
