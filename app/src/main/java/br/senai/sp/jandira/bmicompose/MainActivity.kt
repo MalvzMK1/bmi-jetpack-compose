@@ -1,224 +1,323 @@
 package br.senai.sp.jandira.bmicompose
 
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.shrinkOut
+import androidx.compose.animation.slideIn
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.senai.sp.jandira.bmicompose.ui.theme.BMIComposeTheme
+import br.senai.sp.jandira.bmicompose.utils.bmiCalculate
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
       BMIComposeTheme {
+        // A surface container using the 'background' color from the theme
         Surface(
           modifier = Modifier.fillMaxSize(),
-          color = MaterialTheme.colors.background
+          color = MaterialTheme.colors.background,
         ) {
-          BmiCalculator()
+          Global()
         }
       }
     }
   }
 }
 
+@Preview(
+  showBackground = true,
+  showSystemUi = true,
+)
+
 @Composable
-fun Header() {
-  Column(
-    modifier = Modifier
-      .fillMaxWidth()
-      .padding(top = 8.dp),
-    horizontalAlignment = Alignment.CenterHorizontally
-  ) {
-    Image(
-      painterResource(id = R.drawable.health_icon),
-      contentDescription = "App Logo",
-      modifier = Modifier.size(100.dp)
-    )
-    Text(
-      text = stringResource(id = R.string.app_title).uppercase(),
-      color = Color.Blue,
-      fontSize = 32.sp,
-      letterSpacing = 6.sp,
-      textAlign = TextAlign.Center
-    )
+fun Global() {
+  var heightState by rememberSaveable() {
+    mutableStateOf("")
   }
-}
-
-@Preview
-@Composable
-fun HeaderPreview() {
-  Header()
-}
-
-@Composable
-fun Main() {
-  Column(
-    modifier = Modifier
-      .fillMaxWidth()
-      .padding(16.dp),
-    horizontalAlignment = Alignment.CenterHorizontally
-  ) {
-    Column() {
-      var weight by rememberSaveable() { mutableStateOf("") }
-      var height by rememberSaveable() { mutableStateOf("") }
-      Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.Center
-      ) {
-        Text(
-          text = stringResource(id = R.string.weight_label),
-          modifier = Modifier.padding(bottom = 8.dp)
-        )
-        OutlinedTextField(
-          value = weight,
-          onValueChange = { weight = it },
-          Modifier
-            .fillMaxWidth(),
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-          singleLine = true,
-          shape = RoundedCornerShape(16.dp)
-        )
-      }
-      Spacer(
-        modifier = Modifier.height(16.dp)
-      )
-      Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.Center
-      ) {
-        Text(
-          text = stringResource(id = R.string.height_label),
-          modifier = Modifier.padding(bottom = 8.dp)
-        )
-        OutlinedTextField(
-          value = height,
-          onValueChange = { height = it },
-          Modifier
-            .fillMaxWidth(),
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-          singleLine = true,
-          shape = RoundedCornerShape(16.dp)
-        )
-      }
-    }
-    Button(
-      onClick = { /*TODO*/ },
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(top = 36.dp),
-      shape = RoundedCornerShape(16.dp),
-      colors = ButtonDefaults.buttonColors(Color(40, 150, 30))
-    ) {
-      Text(
-        stringResource(id = R.string.button_text_calculate).uppercase(),
-        color = Color.White,
-        fontSize = 24.sp
-      )
-    }
-    Spacer(
-      modifier = Modifier.height(8.dp)
-    )
+  var weightState by rememberSaveable() {
+    mutableStateOf("")
   }
-}
 
-@Composable
-fun Footer() {
-  Card(
-    modifier = Modifier
-      .fillMaxWidth()
-      .fillMaxHeight(.7f),
-    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-    backgroundColor = Color.Blue,
-    contentColor = Color.White
+  var expandState by remember {
+    mutableStateOf(false)
+  }
+
+  var bmiValue by remember {
+    mutableStateOf(0.0)
+  }
+
+  var weightError by remember {
+    mutableStateOf(false)
+  }
+  var heightError by remember {
+    mutableStateOf(false)
+  }
+
+  val weightFocusRequester = FocusRequester()
+  val context = LocalContext.current
+
+  Column( // Content
+    Modifier.fillMaxSize(),
+    verticalArrangement = Arrangement.Center
   ) {
+    // Header
     Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp),
-      verticalArrangement = Arrangement.Center,
+      Modifier
+        .fillMaxWidth()
+        .padding(top = 16.dp),
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
-      Text(
-        text = "Your Score",
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold
+      Image(
+        painter = painterResource(id = R.drawable.health_icon),
+        contentDescription = "Ícone da aplicação"
       )
       Text(
-        text = "0.00",
-        fontSize = 48.sp,
-        fontWeight = FontWeight.Bold
+        text = stringResource(id = R.string.app_title),
+        color = MaterialTheme.colors.primary,
+        fontSize = 32.sp,
+        letterSpacing = 4.sp,
+        fontWeight = FontWeight(400),
+        fontStyle = FontStyle(2)
       )
-      Text(
-        text = "Congratulations! Your weight is ideal!",
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center
+    }
+    Spacer(modifier = Modifier.height(16.dp))
+    // Form
+    Column(
+      Modifier
+        .fillMaxWidth()
+        .padding(start = 20.dp, end = 20.dp),
+      horizontalAlignment = Alignment.Start
+    ) {
+      OutlinedTextField(
+        value = weightState,
+        onValueChange = {
+          weightError = false
+          weightState = if (it.isEmpty()) {
+            it.trim('.')
+          } else {
+            var lastCharacter = it[it.lastIndex]
+            Log.i("xxx", lastCharacter.toString())
+
+            var newValue = if (lastCharacter === '.' || lastCharacter === ',')
+              it.dropLast(1) else it
+
+            newValue
+          }
+        },
+        Modifier
+          .fillMaxWidth()
+          .padding(bottom = 5.dp, top = 3.dp)
+          .focusRequester(weightFocusRequester),
+        trailingIcon = {
+          if (weightError) Icon(
+            imageVector = Icons.Rounded.Info,
+            contentDescription = "teste",
+            tint = Color.Red
+          ) else null
+        },
+        isError = weightError,
+        label = {
+          Text(text = stringResource(id = R.string.weight_label))
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp)
       )
-      Spacer(
-        modifier = Modifier.height(8.dp)
+
+      Spacer(modifier = Modifier.height(16.dp))
+
+      OutlinedTextField(
+        value = heightState,
+        onValueChange = {
+          heightError = false
+          heightState = if (it.isEmpty()) {
+            it.trim('.')
+          } else {
+            var lastCharacter = it[it.lastIndex]
+            Log.i("xxx", lastCharacter.toString())
+
+            var newValue = if (lastCharacter === '.' || lastCharacter === ',')
+              it.dropLast(1) else it
+            newValue
+          }
+        },
+        Modifier
+          .fillMaxWidth()
+          .padding(bottom = 5.dp, top = 3.dp),
+        trailingIcon = {
+          if (heightError) Icon(
+            imageVector = Icons.Rounded.Info,
+            contentDescription = "teste",
+            tint = Color.Red
+          ) else null
+        },
+        isError = heightError,
+        label = {
+          Text(text = stringResource(id = R.string.height_label))
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp)
       )
-      Row() {
-        Button(onClick = { /*TODO*/ }) {
-          Text(text = stringResource(id = R.string.reset))
-        }
-        Spacer(
-          modifier = Modifier.width(8.dp)
+
+      Button(
+        onClick = {
+          if (weightState.isEmpty()) {
+            weightError = true
+            Toast.makeText(
+              context,
+              "O campo [Weight] nao pode estar vazio!",
+              Toast.LENGTH_SHORT
+            ).show()
+          }
+          if (heightState.isEmpty()) {
+            heightError = true
+            Toast.makeText(
+              context,
+              "O campo [Height] nao pode estar vazio!",
+              Toast.LENGTH_SHORT
+            ).show()
+          } else {
+            if (!weightError && !heightError) {
+              bmiValue =
+                bmiCalculate(
+                  weightState.trim().toInt(),
+                  heightState.trim().toDouble()
+                )
+              expandState = true
+            }
+          }
+        },
+        Modifier
+          .fillMaxWidth()
+          .padding(top = 32.dp)
+          .height(48.dp),
+        colors = ButtonDefaults.buttonColors(backgroundColor = Color(68, 160, 36, 255)),
+        shape = RoundedCornerShape(12.dp)
+      ) {
+        Text(
+          text = stringResource(id = R.string.button_calculate),
+          fontSize = 20.sp,
+          color = Color.White
         )
-        Button(onClick = { /*TODO*/ }) {
-          Text(text = stringResource(id = R.string.share))
+      }
+      Spacer(modifier = Modifier.height(32.dp))
+    }
+    //Footer
+    AnimatedVisibility(
+      visible = expandState,
+      enter = expandIn() + slideIn(initialOffset = { IntOffset(it.width / 2, 0) }),
+      exit = shrinkOut(
+        tween(300, easing = FastOutSlowInEasing),
+        shrinkTowards = Alignment.BottomStart,
+      ) { fullSize ->
+        IntSize(fullSize.width / 50, fullSize.height / 50)
+      }
+    ) {
+      Card(
+        Modifier
+          .fillMaxWidth()
+          .fillMaxHeight(),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        backgroundColor = MaterialTheme.colors.primary
+      ) {
+        Column(
+          Modifier
+            .padding(16.dp)
+            .fillMaxSize(),
+          verticalArrangement = Arrangement.SpaceBetween,
+          horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+          Text(
+            text = stringResource(id = R.string.score_label),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+          )
+          Text(
+            text = "${String.format("%.2f", bmiValue)}",
+            fontSize = 48.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+          )
+          Text(
+            text = "Congratulations! Your weight is ideal",
+            Modifier.fillMaxWidth(),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+          )
+          Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+          ) {
+            Button(
+              onClick = {
+                expandState = false
+                weightState = ""
+                heightState = ""
+                weightFocusRequester.requestFocus()
+              },
+              colors = ButtonDefaults.buttonColors(
+                Color(137, 119, 248)
+              )
+            ) {
+              Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "")
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(text = "Reset")
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Button(
+              onClick = { /*TODO*/ },
+              colors = ButtonDefaults.buttonColors(Color(137, 119, 248))
+            ) {
+              Icon(imageVector = Icons.Rounded.Share, contentDescription = "")
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(text = "Share")
+            }
+          }
         }
       }
     }
   }
 }
-
 @Preview
 @Composable
-fun FooterPreview() {
-  Footer()
-}
-
-@Composable
-fun BmiCalculator() {
-  Column(
-    modifier = Modifier.fillMaxSize(),
-    verticalArrangement = Arrangement.SpaceBetween
-  ) {
-    Header()
-    Main()
-    Footer()
-  }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun BmiComposePreview() {
-  BMIComposeTheme {
-    Surface(
-      modifier = Modifier
-        .fillMaxSize(),
-      color = MaterialTheme.colors.background
-    ) {
-      BmiCalculator()
-    }
-  }
+fun BmiComposePreview () {
+  Global()
 }
